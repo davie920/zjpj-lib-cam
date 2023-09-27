@@ -1,0 +1,82 @@
+import cv2
+import numpy as np
+import os
+import sys
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QMessageBox
+
+# Global variables to store image and transformed result
+img = None
+result = None
+
+# 創建一個空的列表來存儲點的座標
+points = []
+
+# 點擊事件的回調函數
+def click_event(event, x, y, flags, param):
+    global points
+
+    if event == cv2.EVENT_LBUTTONDOWN:
+        # 在圖片上畫一個小圓圈來標記點的位置
+        # cv2.circle(img, (x, y), 5, (0, 0, 255), -1)
+        # cv2.imshow('image', img)
+        overlay = img.copy()
+        cv2.circle(overlay, (x, y), 5, (0, 0, 255, 0), -1, lineType=cv2.LINE_AA)
+        cv2.addWeighted(overlay, 0.0, img, 1.0, 0, img)
+        cv2.imshow('image', img)
+
+        # 將點的座標添加到列表中
+        points.append((x, y))
+
+        # 當收集到四個點時，進行透視變換並顯示結果
+        if len(points) == 4:
+            cv2.destroyAllWindows()
+            transform_image(img, points)
+
+# 執行透視變換
+def transform_image(img, points):
+    global result
+    # 設置目標圖像的寬度和高度與原圖相同
+    width, height = img.shape[1], img.shape[0]
+    new_points = np.array([[0, 0], [width, 0], [width, height], [0, height]], dtype=np.float32)
+
+    # 執行透視變換
+    matrix = cv2.getPerspectiveTransform(np.array(points, dtype=np.float32), new_points)
+    result = cv2.warpPerspective(img, matrix, (width, height))
+
+    # 顯示變換後的圖像
+    cv2.imshow('Transformed Image', result)
+
+    # 儲存變換後的圖像到當前目錄
+    output_filename = 'transformed_image.jpg'
+    cv2.imwrite(output_filename, result)
+    print(f'Transformed image saved as: {output_filename}')
+
+    # 跳出確認視窗
+    app = QApplication(sys.argv)
+    message_box = QMessageBox()
+    message_box.setWindowTitle("儲存檔案")
+    message_box.setText("要存檔嗎?")
+    message_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+    retval = message_box.exec_()
+    if retval == QMessageBox.Yes:
+        cv2.imwrite(output_filename, result)
+        print(f'Transformed image saved as: {output_filename}')
+        cv2.destroyAllWindows()
+    else:
+        print("Image not saved.")
+        cv2.destroyAllWindows()
+
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    # 載入圖片
+    img = cv2.imread('C:\\Users\\User\\Desktop\\t\\test1.jpg')
+
+    # 顯示圖片並設置點擊事件的回調函數
+    cv2.imshow('image', img)
+    cv2.setMouseCallback('image', click_event)
+
+    # 等待用戶按下任意鍵來退出
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
